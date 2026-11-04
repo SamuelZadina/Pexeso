@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lodě – hra proti počítači</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #102033;
+            color: white;
+            text-align: center;
+        }
+
+        h1 {
+            color: #65d9ff;
+        }
+
+        .boards {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin: 30px auto;
+        }
+
+        .board-container {
+            width: min(100%, 400px);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            gap: 3px;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            min-width: 0;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            background: #2775a5;
+            color: white;
+            font-size: clamp(10px, 2.5vw, 20px);
+            font-weight: bold;
+        }
+
+        button.cell:not(:disabled) {
+            cursor: crosshair;
+        }
+
+        button.cell:not(:disabled):hover {
+            background: #4ba9d8;
+        }
+
+        .ship {
+            background: #718096;
+        }
+
+        .hit {
+            background: #e34c4c;
+        }
+
+        .miss {
+            background: #dce7ef;
+            color: #263849;
+        }
+
+        .status {
+            min-height: 48px;
+            margin: 20px auto;
+            font-size: 18px;
+        }
+
+        .controls button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #00a8cc;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .controls button:hover {
+            background: #0087a5;
+        }
+
+        .legend {
+            color: #c6d5e2;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+<h1>🚢 Lodě</h1>
+<p>Potop všechny lodě počítače!</p>
+
+<div class="status" id="status" aria-live="polite">
+    Připrav se ke střelbě.
+</div>
+
+<div class="boards">
+    <section class="board-container">
+        <h2>Moje pole</h2>
+        <div id="playerBoard" class="board"></div>
+    </section>
+
+    <section class="board-container">
+        <h2>Pole počítače</h2>
+        <div id="enemyBoard" class="board"></div>
+    </section>
+</div>
+
+<p class="legend">
+    <span style="color:#718096">■</span> Loď
+    &nbsp;
+    <span style="color:#ff6666">■</span> Zásah
+    &nbsp;
+    <span style="color:#dce7ef">■</span> Minela
+</p>
+
+<div class="controls">
+    <button id="restart">Nová hra</button>
+</div>
