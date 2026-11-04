@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -136,3 +137,219 @@
 <div class="controls">
     <button id="restart">Nová hra</button>
 </div>
+
+<script>
+const SIZE = 10;
+const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+
+let playerBoard = [];
+let computerBoard = [];
+let gameOver = false;
+let playerTurn = true;
+
+function createBoard() {
+    const board = [];
+
+    for (let row = 0; row < SIZE; row++) {
+        board[row] = [];
+
+        for (let col = 0; col < SIZE; col++) {
+            board[row][col] = {
+                ship: false,
+                hit: false
+            };
+        }
+    }
+
+    return board;
+}
+
+function placeShips(board) {
+    for (let s = 0; s < SHIPS.length; s++) {
+        const length = SHIPS[s];
+        let placed = false;
+
+        while (!placed) {
+            const horizontal = Math.random() < 0.5;
+            const row = Math.floor(Math.random() * SIZE);
+            const col = Math.floor(Math.random() * SIZE);
+
+            if (horizontal && col + length > SIZE) continue;
+            if (!horizontal && row + length > SIZE) continue;
+
+            let free = true;
+
+            for (let i = 0; i < length; i++) {
+                let r = row;
+                let c = col;
+
+                if (horizontal) {
+                    c = col + i;
+                } else {
+                    r = row + i;
+                }
+
+                if (board[r][c].ship) {
+                    free = false;
+                }
+            }
+
+            if (free) {
+                for (let i = 0; i < length; i++) {
+                    let r = row;
+                    let c = col;
+
+                    if (horizontal) {
+                        c = col + i;
+                    } else {
+                        r = row + i;
+                    }
+
+                    board[r][c].ship = true;
+                }
+
+                placed = true;
+            }
+        }
+    }
+}
+
+function showBoard(board, elementId, isComputer) {
+    const area = document.getElementById(elementId);
+    area.innerHTML = "";
+
+    for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+            const cell = board[row][col];
+            const button = document.createElement("button");
+
+            button.className = "cell";
+            button.type = "button";
+
+            if (cell.hit && cell.ship) {
+                button.classList.add("hit");
+                button.textContent = "✕";
+            } else if (cell.hit) {
+                button.classList.add("miss");
+                button.textContent = "•";
+            } else if (!isComputer && cell.ship) {
+                button.classList.add("ship");
+            }
+
+            if (isComputer && !cell.hit && !gameOver && playerTurn) {
+                button.addEventListener("click", function () {
+                    playerShoot(row, col);
+                });
+            } else {
+                button.disabled = true;
+            }
+
+            area.appendChild(button);
+        }
+    }
+}
+
+function showBoards() {
+    showBoard(playerBoard, "playerBoard", false);
+    showBoard(computerBoard, "enemyBoard", true);
+}
+
+function allShipsSunk(board) {
+    for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+            if (board[row][col].ship && !board[row][col].hit) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+function playerShoot(row, col) {
+    if (gameOver || !playerTurn) return;
+
+    const cell = computerBoard[row][col];
+    if (cell.hit) return;
+
+    cell.hit = true;
+
+    if (cell.ship) {
+        setStatus("Zásah!");
+    } else {
+        setStatus("Minul jsi. Počítač je na tahu.");
+    }
+
+    if (allShipsSunk(computerBoard)) {
+        endGame("Vyhrál jsi! Potopil jsi všechny lodě.");
+        return;
+    }
+
+    playerTurn = false;
+    showBoards();
+    setTimeout(computerShoot, 600);
+}
+
+function computerShoot() {
+    if (gameOver) return;
+
+    let row;
+    let col;
+
+    do {
+        row = Math.floor(Math.random() * SIZE);
+        col = Math.floor(Math.random() * SIZE);
+    } while (playerBoard[row][col].hit);
+
+    const cell = playerBoard[row][col];
+    cell.hit = true;
+
+    const coordinate = String.fromCharCode(65 + col) + (row + 1);
+
+    if (cell.ship) {
+        setStatus("Počítač střílí na " + coordinate + ": zásah!");
+    } else {
+        setStatus("Počítač střílí na " + coordinate + ": minul.");
+    }
+
+    showBoards();
+
+    if (allShipsSunk(playerBoard)) {
+        endGame("Počítač vyhrál! Zkus to znovu.");
+        return;
+    }
+
+    playerTurn = true;
+    showBoards();
+}
+
+function setStatus(message) {
+    document.getElementById("status").textContent = message;
+}
+
+function endGame(message) {
+    gameOver = true;
+    playerTurn = false;
+    setStatus(message);
+    showBoards();
+}
+
+function newGame() {
+    playerBoard = createBoard();
+    computerBoard = createBoard();
+    gameOver = false;
+    playerTurn = true;
+
+    placeShips(playerBoard);
+    placeShips(computerBoard);
+
+    setStatus("Tvůj tah! Vyber políčko na poli počítače.");
+    showBoards();
+}
+
+document.getElementById("restart").addEventListener("click", newGame);
+
+newGame();
+</script>
+</body>
+</html>
