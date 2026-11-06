@@ -1,632 +1,189 @@
-
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lodě – hra proti počítači</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Čtyřkartové pexeso</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 24px;
-            font-family: Arial, sans-serif;
-            background: #102033;
-            color: white;
-            text-align: center;
-        }
-
-        h1 {
-            color: #65d9ff;
-        }
-
-        .boards {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 40px;
-            margin: 30px auto;
-        }
-
-        .board-container {
-            width: min(100%, 400px);
-        }
-
-        .board {
-            display: grid;
-            grid-template-columns: repeat(10, minmax(0, 1fr));
-            gap: 3px;
-            width: 100%;
-            margin-top: 15px;
-        }
-
-        .cell {
-            aspect-ratio: 1;
-            min-width: 0;
-            padding: 0;
-            border: none;
-            border-radius: 4px;
-            background: #2775a5;
-            color: white;
-            font-size: clamp(10px, 2.5vw, 20px);
-            font-weight: bold;
-        }
-
-        button.cell:not(:disabled) {
-            cursor: crosshair;
-        }
-
-        button.cell:not(:disabled):hover {
-            background: #4ba9d8;
-        }
-
-        .ship {
-            background: #718096;
-        }
-
-        .hit {
-            background: #e34c4c;
-        }
-
-        .miss {
-            background: #dce7ef;
-            color: #263849;
-        }
-
-        .status {
-            min-height: 48px;
-            margin: 20px auto;
-            font-size: 18px;
-        }
-
-        .controls button {
-            margin: 5px;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            background: #00a8cc;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .controls button:hover:not(:disabled) {
-            background: #0087a5;
-        }
-
-        .controls button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .legend {
-            color: #c6d5e2;
-            font-size: 14px;
-        }
-    </style>
+<style>
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 90px);
+  gap: 12px;
+  justify-content: center;
+  max-width: 420px;
+  margin: 25px auto;
+}
+</style>
 </head>
-
 <body>
 
-<h1>🚢 Lodě</h1>
-<p>Potop všechny lodě počítače!</p>
+<h1>Čtyřkartové pexeso</h1>
+<p>Najdi čtyři stejné obrázky!</p>
 
-<div class="status" id="status" aria-live="polite">
-    Připrav se ke střelbě.
+<div class="info">
+  <div class="player active" id="p1">
+     Hráč 1: <span id="s1">0</span>
+  </div>
+
+  <div class="player" id="p2">
+     Hráč 2: <span id="s2">0</span>
+  </div>
 </div>
 
-<div class="boards">
-    <section class="board-container">
-        <h2>Moje pole</h2>
-        <div id="playerBoard" class="board"></div>
-    </section>
+<div id="status">Hraje hráč 1 – otoč 4 kartičky!</div>
 
-    <section class="board-container">
-        <h2>Pole počítače</h2>
-        <div id="enemyBoard" class="board"></div>
-    </section>
-</div>
+<div class="board" id="board"></div>
 
-<p class="legend">
-    <span style="color:#718096">■</span> Loď
-    &nbsp;
-    <span style="color:#ff6666">■</span> Zásah
-    &nbsp;
-    <span style="color:#dce7ef">■</span> Minela
-</p>
-
-<div class="controls">
-    <button id="moveButton" disabled>Přesunout loď</button>
-    <button id="restart">Nová hra</button>
-</div>
+<button class="restart" onclick="startGame()">
+   Nová hra
+</button>
 
 <script>
-    const SIZE = 10;
-    const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+const symbols = ["🐶", "🐱", "🦊", "🐼", "🦁", "🐸", "🐵", "🐰"];
 
-    let playerBoard = [];
-    let computerBoard = [];
+let cards = [];
+let selected = [];
+let matched = [];
+let player = 1;
+let scores = [0, 0];
+let locked = false;
 
-    let gameOver = false;
-    let playerTurn = true;
+// Spuštění nové hry
+function startGame() {
+  cards = [...symbols, ...symbols, ...symbols, ...symbols];
 
-    let playerRounds = 0;
-    let moveAvailable = false;
-    let moveMode = false;
-    let selectedShip = null;
+  cards.sort(() => Math.random() - 0.5);
 
+  selected = [];
+  matched = [];
+  player = 1;
+  scores = [0, 0];
+  locked = false;
 
-    // Vytvoří prázdné herní pole
-    function createBoard() {
-        const board = [];
+  document.getElementById("s1").textContent = 0;
+  document.getElementById("s2").textContent = 0;
 
-        for (let row = 0; row < SIZE; row++) {
-            board[row] = [];
+  
+  updateStatus();
+  renderCards();
+}
 
-            for (let col = 0; col < SIZE; col++) {
-                board[row][col] = {
-                    ship: false,
-                    hit: false
-                };
-            }
-        }
+// Vytvoření kartiček
+function renderCards() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
 
-        return board;
+  for (let i = 0; i < cards.length; i++) {
+    const card = document.createElement("button");
+
+    card.className = "card";
+    card.textContent = "Tajemství";
+
+    if (selected.includes(i) || matched.includes(i)) {
+      card.textContent = cards[i];
     }
 
-
-    function placeShips(board) {
-        for (let s = 0; s < SHIPS.length; s++) {
-            const length = SHIPS[s];
-            let placed = false;
-
-            while (!placed) {
-                const horizontal = Math.random() < 0.5;
-                const row = Math.floor(Math.random() * SIZE);
-                const col = Math.floor(Math.random() * SIZE);
-
-                if (horizontal && col + length > SIZE) continue;
-                if (!horizontal && row + length > SIZE) continue;
-
-                let free = true;
-
-                for (let i = 0; i < length; i++) {
-                    let r = row;
-                    let c = col;
-
-                    if (horizontal) {
-                        c = col + i;
-                    } else {
-                        r = row + i;
-                    }
-
-                    if (board[r][c].ship) {
-                        free = false;
-                    }
-                }
-
-                if (free) {
-                    for (let i = 0; i < length; i++) {
-                        let r = row;
-                        let c = col;
-
-                        if (horizontal) {
-                            c = col + i;
-                        } else {
-                            r = row + i;
-                        }
-
-                        board[r][c].ship = true;
-                    }
-
-                    placed = true;
-                }
-            }
-        }
+    if (matched.includes(i)) {
+      card.classList.add("matched");
+      card.disabled = true;
     }
 
+    card.onclick = function() {
+      flipCard(i);
+    };
 
+    board.appendChild(card);
+  }
+}
 
-    // Zobrazí herní pole
-    function showBoard(board, elementId, isComputer) {
-        const area = document.getElementById(elementId);
-        area.innerHTML = "";
+// Otočení kartičky
+function flipCard(index) {
+  if (locked || selected.includes(index) || matched.includes(index)) {
+    return;
+  }
 
-        for (let row = 0; row < SIZE; row++) {
-            for (let col = 0; col < SIZE; col++) {
-                const cell = board[row][col];
-                const button = document.createElement("button");
+  selected.push(index);
+  renderCards();
 
-                button.className = "cell";
-                button.type = "button";
+  if (selected.length < 4) {
+    updateStatus("Otoč ještě " + (4 - selected.length) + " kartičky!");
+    return;
+  }
 
-                if (cell.hit && cell.ship) {
-                    button.classList.add("hit");
-                    button.textContent = "✕";
-                } else if (cell.hit) {
-                    button.classList.add("miss");
-                    button.textContent = "•";
-                } else if (!isComputer && cell.ship) {
-                    button.classList.add("ship");
-                }
+  locked = true;
 
-                if (
-                    isComputer &&
-                    !cell.hit &&
-                    !gameOver &&
-                    playerTurn &&
-                    !moveMode
-                ) {
-                    button.addEventListener("click", function () {
-                        playerShoot(row, col);
-                    });
-                } else if (
-                    !isComputer &&
-                    moveMode &&
-                    !gameOver &&
-                    playerTurn
-                ) {
-                    button.addEventListener("click", function () {
-                        ownCellClick(row, col);
-                    });
-                } else {
-                    button.disabled = true;
-                }
+  let firstCard = cards[selected[0]];
+  let isMatch = true;
 
-                area.appendChild(button);
-            }
-        }
+  for (let i = 0; i < selected.length; i++) {
+    if (cards[selected[i]] !== firstCard) {
+      isMatch = false;
+    }
+  }
+
+  setTimeout(function() {
+    if (isMatch) {
+      for (let i = 0; i < selected.length; i++) {
+        matched.push(selected[i]);
+      }
+
+      scores[player - 1]++;
+
+      document.getElementById("s" + player).textContent =
+        scores[player - 1];
+
+      updateStatus("Výborně! Získáváš bod!");
+    } else {
+      if (player === 1) {
+        player = 2;
+      } else {
+        player = 1;
+      }
+
+      updateStatus();
     }
 
+    selected = [];
+    locked = false;
 
-    // Zobrazí obě pole
-    function showBoards() {
-        showBoard(playerBoard, "playerBoard", false);
-        showBoard(computerBoard, "enemyBoard", true);
+    renderCards();
+    
+    if (matched.length === cards.length) {
+      finishGame();
     }
+  }, 1000);
+}
+
+// Zobrazení zprávy
+function updateStatus(message) {
+  if (message) {
+    document.getElementById("status").textContent = message;
+  } else {
+    document.getElementById("status").textContent =
+      "Hraje hráč " + player + " – otoč 4 kartičky!";
+  }
+}
+
+// Konec hry
+function finishGame() {
+  let result = "";
+
+  if (scores[0] > scores[1]) {
+    result = "Vyhrává hráč 1!";
+  } else if (scores[1] > scores[0]) {
+    result = "Vyhrává hráč 2!";
+  } else {
+    result = "Remíza!";
+  }
+
+  document.getElementById("status").textContent =
+    "Konec hry! " + result;
+}
+
+// Spuštění hry
+startGame();
 
-
-    // Zjistí, zda jsou všechny lodě potopené
-    function allShipsSunk(board) {
-        for (let row = 0; row < SIZE; row++) {
-            for (let col = 0; col < SIZE; col++) {
-                if (board[row][col].ship && !board[row][col].hit) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-
-    // Hráč střílí
-    function playerShoot(row, col) {
-        if (gameOver || !playerTurn || moveMode) return;
-
-        const cell = computerBoard[row][col];
-
-        if (cell.hit) return;
-
-        cell.hit = true;
-
-        if (cell.ship) {
-            setStatus("Zásah!");
-        } else {
-            setStatus("Minul jsi. Počítač je na tahu.");
-        }
-
-        if (allShipsSunk(computerBoard)) {
-            endGame("Vyhrál jsi! Potopil jsi všechny lodě.");
-            return;
-        }
-
-        playerTurn = false;
-        showBoards();
-
-        setTimeout(computerShoot, 600);
-    }
-
-
-    // Počítač střílí
-    function computerShoot() {
-        if (gameOver) return;
-
-        let row;
-        let col;
-
-        do {
-            row = Math.floor(Math.random() * SIZE);
-            col = Math.floor(Math.random() * SIZE);
-        } while (playerBoard[row][col].hit);
-
-        const cell = playerBoard[row][col];
-        cell.hit = true;
-
-        const coordinate = String.fromCharCode(65 + col) + (row + 1);
-
-        if (cell.ship) {
-            setStatus("Počítač střílí na " + coordinate + ": zásah!");
-        } else {
-            setStatus("Počítač střílí na " + coordinate + ": minul.");
-        }
-
-        showBoards();
-
-        if (allShipsSunk(playerBoard)) {
-            endGame("Počítač vyhrál! Zkus to znovu.");
-            return;
-        }
-
-        // Počítač dokončil svůj tah
-        playerRounds++;
-
-        playerTurn = true;
-
-        if (playerRounds % 4 === 0) {
-            moveAvailable = true;
-            document.getElementById("moveButton").disabled = false;
-
-            setStatus("Můžeš přesunout jednu loď až o 3 pole!");
-        } else {
-            setStatus("Tvůj tah!");
-        }
-
-        showBoards();
-    }
-
-    /**
-     * AI Generated
-     * Model: OpenAI GPT-5.6-sol
-     */
-    // Zapne režim přesouvání
-    document.getElementById("moveButton").addEventListener("click", function () {
-        if (!moveAvailable || !playerTurn || gameOver) {
-            return;
-        }
-
-        moveMode = true;
-        selectedShip = null;
-
-        setStatus("Vyber svou nezasaženou loď.");
-        showBoards();
-    });
-
-    /**
-     * AI Generated
-     * Model: OpenAI GPT-5.6-sol
-     */
-    // Výběr lodě a její přesun
-    function ownCellClick(row, col) {
-        const board = playerBoard;
-
-
-        /**
-         * AI Generated
-         * Model: OpenAI GPT-5.6-sol
-         */
-        // První kliknutí vybere loď
-        if (!selectedShip) {
-            if (!board[row][col].ship) {
-                setStatus("Klikni na políčko své lodě.");
-                return;
-            }
-
-            /**
-             * AI Generated
-             * Model: OpenAI GPT-5.6-sol
-             */
-            // Zjistíme směr lodě
-            const horizontal =
-                (col > 0 && board[row][col - 1].ship) ||
-                (col < SIZE - 1 && board[row][col + 1].ship);
-
-            const cells = [];
-
-            if (horizontal) {
-                let c = col;
-
-                while (c >= 0 && board[row][c].ship) {
-                    cells.push([row, c]);
-                    c--;
-                }
-
-                c = col + 1;
-
-                while (c < SIZE && board[row][c].ship) {
-                    cells.push([row, c]);
-                    c++;
-                }
-            } else {
-                let r = row;
-
-                while (r >= 0 && board[r][col].ship) {
-                    cells.push([r, col]);
-                    r--;
-                }
-
-                r = row + 1;
-
-                while (r < SIZE && board[r][col].ship) {
-                    cells.push([r, col]);
-                    r++;
-                }
-            }
-
-            selectedShip = {
-                cells: cells,
-                row: row,
-                col: col,
-                horizontal: horizontal
-            };
-
-            setStatus("Klikni na nové místo lodě (max. 3 pole).");
-            return;
-        }
-
-        /**
-         * AI Generated
-         * Model: OpenAI GPT-5.6-sol
-         */
-        // Druhé kliknutí vybere nové místo
-        const dr = row - selectedShip.row;
-        const dc = col - selectedShip.col;
-
-        if (
-            Math.abs(dr) + Math.abs(dc) > 3 ||
-            (dr !== 0 && dc !== 0) ||
-            (dr === 0 && dc === 0)
-        ) {
-            setStatus("Přesuň loď o 1 až 3 pole rovně.");
-            return;
-        }
-
-        // Loď se pohybuje pouze po své ose
-        if (selectedShip.cells.length > 1) {
-            if (selectedShip.horizontal && dr !== 0) {
-                setStatus("Tato loď se pohybuje vodorovně.");
-                return;
-            }
-
-            if (!selectedShip.horizontal && dc !== 0) {
-                setStatus("Tato loď se pohybuje svisle.");
-                return;
-            }
-        }
-
-        const oldCells = selectedShip.cells;
-
-        const oldSet = new Set(
-            oldCells.map(([r, c]) => r + "," + c)
-        );
-
-        const newCells = oldCells.map(([r, c]) => [
-            r + dr,
-            c + dc
-        ]);
-
-        /**
-         * AI Generated
-         * Model: OpenAI GPT-5.6-sol
-         */
-        // Kontrola okrajů a okolí nové polohy
-        for (const [r, c] of newCells) {
-            if (
-                r < 0 || r >= SIZE ||
-                c < 0 || c >= SIZE
-            ) {
-                setStatus("Loď musí zůstat na hracím poli.");
-                return;
-            }
-
-            for (let y = -1; y <= 1; y++) {
-                for (let x = -1; x <= 1; x++) {
-                    const nr = r + y;
-                    const nc = c + x;
-
-                    if (
-                        nr < 0 || nr >= SIZE ||
-                        nc < 0 || nc >= SIZE
-                    ) {
-                        continue;
-                    }
-
-                    if (
-                        board[nr][nc].ship &&
-                        !oldSet.has(nr + "," + nc)
-                    ) {
-                        setStatus("Loď se nesmí dotýkat jiné lodě!");
-                        return;
-                    }
-                }
-            }
-        }
-
-        /**
-         * AI Generated
-         * Model: OpenAI GPT-5.6-sol
-         */
-        // Odstraníme loď ze starého místa
-        for (const [r, c] of oldCells) {
-            board[r][c].ship = false;
-        }
-
-        /**
-         * AI Generated
-         * Model: OpenAI GPT-5.6-sol
-         */
-        // Umístíme loď na nové místo
-        for (const [r, c] of newCells) {
-            board[r][c].ship = true;
-        }
-
-        moveAvailable = false;
-        moveMode = false;
-        selectedShip = null;
-
-        document.getElementById("moveButton").disabled = true;
-
-        setStatus("Loď přesunuta! Pokračuj ve hře.");
-        showBoards();
-    }
-
-
-    // Změní text zprávy
-    function setStatus(message) {
-        document.getElementById("status").textContent = message;
-    }
-
-
-    // Ukončí hru
-    function endGame(message) {
-        gameOver = true;
-        playerTurn = false;
-        moveMode = false;
-        selectedShip = null;
-
-        document.getElementById("moveButton").disabled = true;
-
-        setStatus(message);
-        showBoards();
-    }
-
-
-    // Spustí novou hru
-    function newGame() {
-        playerBoard = createBoard();
-        computerBoard = createBoard();
-
-        gameOver = false;
-        playerTurn = true;
-
-        playerRounds = 0;
-        moveAvailable = false;
-        moveMode = false;
-        selectedShip = null;
-
-        document.getElementById("moveButton").disabled = true;
-
-        placeShips(playerBoard);
-        placeShips(computerBoard);
-
-        setStatus("Tvůj tah! Vyber políčko na poli počítače.");
-
-        showBoards();
-    }
-
-
-    // Tlačítko pro novou hru
-    document.getElementById("restart").addEventListener("click", newGame);
-
-    // Spustí hru
-    newGame();
 </script>
-
 </body>
 </html>
